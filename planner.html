@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Moving Planner">
+  <title>Moving Planner — Geren Lockhart</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ── Category Breakdown ── */
+    .category-grid {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .category-grid::-webkit-scrollbar { display: none; }
+
+    .cat-chip {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      min-width: 72px;
+    }
+
+    .cat-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--linen-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+    }
+
+    .cat-icon svg { width: 18px; height: 18px; }
+
+    .cat-count {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.4rem;
+      font-weight: 300;
+      line-height: 1;
+      color: var(--navy);
+    }
+
+    .cat-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    /* ── Stage Toggle ── */
+    .stage-pills {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .stage-pills::-webkit-scrollbar { display: none; }
+
+    .stage-pill {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 100px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+
+    .stage-pill.active {
+      background: var(--steel);
+      border-color: var(--steel);
+      color: var(--white);
+    }
+
+    /* ── Task stage indicator ── */
+    .stage-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .stage-dot.not_started  { background: var(--border); }
+    .stage-dot.in_progress  { background: var(--steel); }
+    .stage-dot.completed    { background: var(--sage); }
+
+    /* ── Completed task style ── */
+    .task-card.completed .task-title {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Top Header -->
+    <header class="top-header">
+      <img src="assets/gl-logo.png" alt="GL" class="gl-logo">
+      <span class="header-title">Moving Planner</span>
+      <div class="header-action">
+        <button class="btn btn-primary" onclick="openModal('add-task-modal')">
+          <span>${icons?.plus ?? '+'}</span> Add Task
+        </button>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <main class="page-content">
+
+      <!-- Overall Progress -->
+      <div class="card" style="margin-bottom:16px;">
+        <h2 style="margin-bottom:12px;">Overall Progress</h2>
+        <div class="progress-label">
+          <span>Completion</span>
+          <span id="progress-pct">0%</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+        </div>
+        <div class="stat-grid" style="margin-top:12px;margin-bottom:0;">
+          <div class="stat-card">
+            <div class="stat-number" id="count-completed">0</div>
+            <div class="stat-label">Completed</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="count-in-progress">0</div>
+            <div class="stat-label">In Progress</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="count-not-started">0</div>
+            <div class="stat-label">Not Started</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Breakdown -->
+      <div class="card" style="margin-bottom:16px;">
+        <h2 style="margin-bottom:14px;">Category Breakdown</h2>
+        <div class="category-grid" id="category-grid">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <!-- All Tasks -->
+      <div class="section-header">
+        <h2>All Tasks</h2>
+        <select class="filter-select" id="sort-select" onchange="renderTasks()">
+          <option value="date">Sort: Date</option>
+          <option value="priority">Sort: Priority</option>
+          <option value="category">Sort: Category</option>
+          <option value="stage">Sort: Stage</option>
+        </select>
+      </div>
+
+      <!-- Search -->
+      <div class="search-bar">
+        <span>${icons?.search ?? ''}</span>
+        <input type="text" class="search-input" id="search-input"
+               placeholder="Search tasks…" oninput="renderTasks()">
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-row">
+        <select class="filter-select" id="filter-category" onchange="renderTasks()">
+          <option value="">All Categories</option>
+          <option value="storage">Storage</option>
+          <option value="mobile_kit">Mobile Kit</option>
+          <option value="sell">Sell</option>
+          <option value="trash">Trash</option>
+          <option value="gift">Gift</option>
+        </select>
+        <select class="filter-select" id="filter-stage" onchange="renderTasks()">
+          <option value="">All Stages</option>
+          <option value="not_started">Not Started</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+        </select>
+        <select class="filter-select" id="filter-room" onchange="renderTasks()">
+          <option value="">All Rooms</option>
+          <option value="kitchen">Kitchen</option>
+          <option value="living_room">Living Room</option>
+          <option value="bedroom">Bedroom</option>
+          <option value="bathroom">Bathroom</option>
+          <option value="office">Office</option>
+          <option value="outside">Outside</option>
+          <option value="garage">Garage</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <!-- Task List -->
+      <div id="task-count" class="section-count" style="margin-bottom:10px;"></div>
+      <div id="task-list">
+        <div class="loading"><div class="spinner"></div> Loading tasks…</div>
+      </div>
+
+    </main>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+      <a href="planner.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        Planner
+      </a>
+      <a href="storage.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        Storage
+      </a>
+    </nav>
+
+  </div>
+
+  <!-- ── Add / Edit Task Modal ── -->
+  <div class="modal-overlay" id="add-task-modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h2 class="modal-title" id="modal-title">Add New Task</h2>
+      <p class="modal-subtitle">Create a new task for your move.</p>
+
+      <input type="hidden" id="edit-task-id">
+
+      <div class="form-group">
+        <label>Subject *</label>
+        <input type="text" id="task-subject" placeholder="e.g., Pack kitchen dishes">
+      </div>
+
+      <div class="form-group">
+        <label>Description / Task Details</label>
+        <textarea id="task-description" placeholder="Additional details about this task…"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Category *</label>
+          <select id="task-category">
+            <option value="storage">Storage</option>
+            <option value="mobile_kit">Mobile Kit</option>
+            <option value="sell">Sell</option>
+            <option value="trash">Trash</option>
+            <option value="gift">Gift</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Room Location *</label>
+          <select id="task-room">
+            <option value="kitchen">Kitchen</option>
+            <option value="living_room">Living Room</option>
+            <option value="bedroom">Bedroom</option>
+            <option value="bathroom">Bathroom</option>
+            <option value="office">Office</option>
+            <option value="outside">Outside</option>
+            <option value="garage">Garage</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Target Date *</label>
+          <input type="date" id="task-date">
+        </div>
+        <div class="form-group">
+          <label>Stage *</label>
+          <select id="task-stage">
+            <option value="not_started">Not Started</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Priority *</label>
+        <select id="task-priority">
+          <option value="necessary">Necessary</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('add-task-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveTask()" id="save-task-btn">Add Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/shared.js"></script>
+  <script src="js/planner.js"></script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Storage Log">
+  <title>Storage Log — Geren Lockhart</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .total-bar {
+      background: var(--steel-light);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .total-label { font-size: 0.85rem; color: var(--navy); font-weight: 500; }
+    .total-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.6rem;
+      font-weight: 400;
+      color: var(--steel-dark);
+    }
+
+    .bin-type-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+    }
+    .bin-type-photo {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      background: var(--linen-dark);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      overflow: hidden;
+    }
+    .bin-type-photo img { width:100%; height:100%; object-fit:cover; }
+    .bin-type-name { flex: 1; font-weight: 500; font-size: 0.95rem; }
+    .bin-type-delete {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 6px;
+      border-radius: var(--radius-sm);
+      transition: color 0.2s, background 0.2s;
+    }
+    .bin-type-delete:hover { color: var(--critical); background: var(--critical-bg); }
+
+    .header-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    @media (max-width: 480px) {
+      .header-buttons .btn span:not(.icon-only) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Top Header -->
+    <header class="top-header">
+      <img src="assets/gl-logo.png" alt="GL" class="gl-logo">
+      <span class="header-title">Storage Log</span>
+      <div class="header-buttons">
+        <button class="btn btn-secondary" onclick="openInsuranceReport()" title="Insurance Report">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span>Insurance</span>
+        </button>
+        <button class="btn btn-secondary" onclick="openModal('bin-types-modal')" title="Manage Bin Types">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <span>Bin Types</span>
+        </button>
+        <button class="btn btn-primary" onclick="openAddContainer()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+          <span>Add</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <main class="page-content">
+
+      <!-- Title -->
+      <div style="margin-bottom:16px;">
+        <h1 style="display:flex;align-items:center;gap:10px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--steel)" stroke-width="1.5" width="28" height="28"><path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+          Storage Inventory Log
+        </h1>
+        <p style="color:var(--text-secondary);font-size:0.85rem;margin-top:4px;">
+          Track boxes, bins, and items in storage with detailed inventory and values
+        </p>
+      </div>
+
+      <!-- Total Value Bar -->
+      <div class="total-bar">
+        <span class="total-label">Total Inventory Value</span>
+        <span class="total-value" id="total-value">$0.00</span>
+      </div>
+
+      <!-- Search -->
+      <div class="search-bar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" id="search-input"
+               placeholder="Search inventory…" oninput="renderContainers()">
+      </div>
+
+      <!-- Filter Row -->
+      <div class="filter-row">
+        <select class="filter-select" id="filter-type" onchange="renderContainers()">
+          <option value="">All Types</option>
+        </select>
+        <select class="filter-select" id="filter-location" onchange="renderContainers()">
+          <option value="">All Locations</option>
+        </select>
+        <select class="filter-select" id="sort-select" onchange="renderContainers()">
+          <option value="created">Sort: Date Added</option>
+          <option value="code">Sort: Code</option>
+          <option value="value_desc">Sort: Value ↓</option>
+          <option value="value_asc">Sort: Value ↑</option>
+        </select>
+      </div>
+
+      <!-- Container List -->
+      <div class="section-header">
+        <h2>Current Inventory</h2>
+        <span class="section-count" id="container-count"></span>
+      </div>
+
+      <div id="container-list">
+        <div class="loading"><div class="spinner"></div> Loading inventory…</div>
+      </div>
+
+    </main>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+      <a href="planner.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        Planner
+      </a>
+      <a href="storage.html" class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        Storage
+      </a>
+    </nav>
+
+  </div>
+
+  <!-- ── Add / Edit Container Modal ── -->
+  <div class="modal-overlay" id="container-modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h2 class="modal-title" id="container-modal-title">Add New Container</h2>
+      <p class="modal-subtitle">Enter details for a box, bin, or item going into storage.</p>
+
+      <input type="hidden" id="edit-container-id">
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Code / ID *</label>
+          <input type="text" id="container-code" placeholder="e.g., BOX-001, BIN-A">
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="container-type"></select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="container-description" placeholder="e.g., Kitchen utensils and dishes"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Size</label>
+          <select id="container-size">
+            <option value="">Select size</option>
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+            <option value="xl">XL</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Location in Storage</label>
+          <input type="text" id="container-location" placeholder="e.g., Unit A, Row 2">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Estimated Value ($)</label>
+          <input type="number" id="container-value" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Website Link (optional)</label>
+          <input type="url" id="container-link" placeholder="https://…">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('container-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveContainer()" id="save-container-btn">Add Container</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Manage Bin Types Modal ── -->
+  <div class="modal-overlay" id="bin-types-modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h2 class="modal-title">Manage Bin Types</h2>
+      <p class="modal-subtitle">Add, edit, or delete bin types for container classification.</p>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="margin-bottom:14px;">Add New Bin Type</h3>
+        <div class="form-group">
+          <label>Bin Type Name</label>
+          <input type="text" id="new-bin-type-name" placeholder="e.g., Box, Thing, Dk. Grey Bin">
+        </div>
+        <button class="btn btn-primary" onclick="addBinType()" style="width:100%;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+          Add Bin Type
+        </button>
+      </div>
+
+      <h3 style="margin-bottom:12px;">Available Bin Types <span id="bin-type-count" style="color:var(--text-muted);font-size:0.85rem;font-weight:400;"></span></h3>
+      <div id="bin-type-list">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('bin-types-modal')">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Insurance Report Modal ── -->
+  <div class="modal-overlay" id="insurance-modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h2 class="modal-title">Insurance Inventory Report</h2>
+      <p class="modal-subtitle">Complete inventory report with values for insurance purposes.</p>
+
+      <div class="total-bar" style="margin-bottom:20px;">
+        <div>
+          <div class="total-label">Total Inventory Value</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;" id="report-date"></div>
+        </div>
+        <div class="total-value" id="report-total">$0.00</div>
+      </div>
+
+      <div id="insurance-list"></div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('insurance-modal')">Close</button>
+        <button class="btn btn-primary" onclick="window.print()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><polyline points="6 9 6 2 18 2 18 9"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/shared.js"></script>
+  <script src="js/storage.js"></script>
+</body>
+</html>
