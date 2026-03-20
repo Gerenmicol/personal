@@ -298,7 +298,7 @@ async function uploadPhotos(containerId) {
 
     var uploadRes = await storageApi('object/' + STORAGE_BUCKET + '/' + path, {
       method: 'POST',
-      headers: { 'Content-Type': p.file.type },
+      headers: { 'content-type': p.file.type },
       body: p.file,
     });
 
