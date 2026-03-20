@@ -296,9 +296,9 @@ async function uploadPhotos(containerId) {
     var ext = p.file.name.split('.').pop();
     var path = containerId + '/' + Date.now() + '-' + i + '.' + ext;
 
-    var uploadRes = await storageApi('object/' + STORAGE_BUCKET + '/' + path, {
+    var uploadRes = await fetch(SUPABASE_URL + '/storage/v1/object/' + STORAGE_BUCKET + '/' + path, {
       method: 'POST',
-      headers: { 'content-type': p.file.type },
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': p.file.type },
       body: p.file,
     });
 
