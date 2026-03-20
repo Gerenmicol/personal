@@ -1,443 +1,492 @@
-// ── State ────────────────────────────────────────────────────────────
-let allContainers = [];
-let allBinTypes   = [];
-const PHOTO_BUCKET = 'container-photos';
+// storage.js — GL Personal Tools · Storage Inventory Log
+// Supabase: rylapwjambqfppjktjra.supabase.co
 
-// ── Load All ─────────────────────────────────────────────────────────
-async function loadAll() {
-  await Promise.all([loadBinTypes(), loadContainers()]);
-}
+const SUPABASE_URL = 'https://rylapwjambqfppjktjra.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5bGFwd2phbWJxZnBwamt0anJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjgxMjEsImV4cCI6MjA4ODc0NDEyMX0.SyTXZI2zv5EL9l7ie5uOSXvGj10G03E0yjXL0m0BgMY';
+const STORAGE_BUCKET = 'container-photos';
 
-// ── Bin Types ─────────────────────────────────────────────────────────
-async function loadBinTypes() {
-  const { data, error } = await db
-    .from('storage_bin_types')
-    .select('*')
-    .order('name', { ascending: true });
-  if (error) { console.error(error); return; }
-  allBinTypes = data || [];
-  populateBinTypeSelects();
-  renderBinTypeList();
-}
-
-function populateBinTypeSelects() {
-  // Container modal type select
-  const typeSelect = document.getElementById('container-type');
-  if (typeSelect) {
-    const v = typeSelect.value;
-    typeSelect.innerHTML = `<option value="">Select type</option>` +
-      allBinTypes.map(bt => `<option value="${bt.id}">${escapeHtml(bt.name)}</option>`).join('');
-    if (v) typeSelect.value = v;
-  }
-
-  // Location filter (built from existing containers)
-  const locs = [...new Set(allContainers.map(c => c.location).filter(Boolean))];
-  const locSel = document.getElementById('filter-location');
-  if (locSel) locSel.innerHTML = `<option value="">All Locations</option>` +
-    locs.map(l => `<option value="${l}">${escapeHtml(l)}</option>`).join('');
-
-  // Type filter
-  const typFil = document.getElementById('filter-type');
-  if (typFil) typFil.innerHTML = `<option value="">All Types</option>` +
-    allBinTypes.map(bt => `<option value="${bt.id}">${escapeHtml(bt.name)}</option>`).join('');
-}
-
-function renderBinTypeList() {
-  const list  = document.getElementById('bin-type-list');
-  const count = document.getElementById('bin-type-count');
-  if (!list) return;
-  if (count) count.textContent = `(${allBinTypes.length})`;
-  if (allBinTypes.length === 0) {
-    list.innerHTML = `<div class="empty-state" style="padding:24px;"><p>No bin types yet.</p></div>`;
-    return;
-  }
-  list.innerHTML = allBinTypes.map(bt => `
-    <div class="bin-type-item">
-      <div class="bin-type-photo">
-        ${bt.photo_url
-          ? `<img src="${bt.photo_url}" alt="">`
-          : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`}
-      </div>
-      <span class="bin-type-name">${escapeHtml(bt.name)}</span>
-      <button class="bin-type-delete" onclick="deleteBinType('${bt.id}')" title="Delete">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-      </button>
-    </div>`).join('');
-}
-
-// ── Load Containers ───────────────────────────────────────────────────
-async function loadContainers() {
-  const { data, error } = await db
-    .from('storage_containers')
-    .select('*, storage_bin_types(name)')
-    .order('code', { ascending: true });
-
-  if (error) {
-    console.error(error);
-    document.getElementById('container-list').innerHTML =
-      `<div class="empty-state"><p>Error loading inventory.</p></div>`;
-    return;
-  }
-
-  allContainers = data || [];
-
-  // Fetch photos for all containers
-  const ids = allContainers.map(c => c.id);
-  if (ids.length > 0) {
-    const { data: photos } = await db
-      .from('container_photos')
-      .select('*')
-      .in('container_id', ids)
-      .order('sort_order', { ascending: true });
-    const photoMap = {};
-    (photos || []).forEach(p => {
-      if (!photoMap[p.container_id]) photoMap[p.container_id] = [];
-      photoMap[p.container_id].push(p);
-    });
-    allContainers = allContainers.map(c => ({ ...c, photos: photoMap[c.id] || [] }));
-  }
-
-  updateTotalValue();
-  populateBinTypeSelects();
-  renderContainers();
-}
-
-// ── Total Value ───────────────────────────────────────────────────────
-function updateTotalValue() {
-  const total = allContainers.reduce((s, c) => s + (parseFloat(c.estimated_value) || 0), 0);
-  document.getElementById('total-value').textContent = formatCurrency(total);
-}
-
-// ── Filter & Sort ─────────────────────────────────────────────────────
-function getFilteredContainers() {
-  const search   = document.getElementById('search-input')?.value.toLowerCase().trim() || '';
-  const typeId   = document.getElementById('filter-type')?.value || '';
-  const location = document.getElementById('filter-location')?.value || '';
-  const sort     = document.getElementById('sort-select')?.value || 'code';
-
-  let c = [...allContainers];
-  if (search)   c = c.filter(x =>
-    x.code?.toLowerCase().includes(search) ||
-    x.description?.toLowerCase().includes(search) ||
-    x.storage_bin_types?.name?.toLowerCase().includes(search) ||
-    x.location?.toLowerCase().includes(search));
-  if (typeId)   c = c.filter(x => x.type_id === typeId);
-  if (location) c = c.filter(x => x.location === location);
-
-  c.sort((a, b) => {
-    if (sort === 'value_desc') return (b.estimated_value || 0) - (a.estimated_value || 0);
-    if (sort === 'value_asc')  return (a.estimated_value || 0) - (b.estimated_value || 0);
-    if (sort === 'created')    return new Date(b.created_at) - new Date(a.created_at);
-    return (a.code || '').localeCompare(b.code || '');
+const api = (path, opts = {}) =>
+  fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+      ...opts.headers,
+    },
+    ...opts,
   });
-  return c;
+
+const storageApi = (path, opts = {}) =>
+  fetch(`${SUPABASE_URL}/storage/v1/${path}`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      ...opts.headers,
+    },
+    ...opts,
+  });
+
+// State
+let containers = [];
+let binTypes = [];
+let pendingPhotos = [];
+let editingId = null;
+let detailContainerId = null;
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  loadBinTypes();
+  loadContainers();
+  bindUI();
+});
+
+// Data Loading
+async function loadBinTypes() {
+  const res = await api('storage_bin_types?select=id,name&order=name');
+  if (res.ok) {
+    binTypes = await res.json();
+    populateBinTypeSelect();
+  }
 }
 
-// ── Render Container Cards ────────────────────────────────────────────
-function renderContainers() {
-  const containers = getFilteredContainers();
-  const list    = document.getElementById('container-list');
+async function loadContainers() {
+  const res = await api(
+    'storage_containers?select=*,container_photos(id,url,label,sort_order)&order=code'
+  );
+  if (!res.ok) { console.error('Failed to load containers'); return; }
+  containers = await res.json();
+  renderGrid();
+}
+
+// Render
+function renderGrid() {
+  const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const grid = document.getElementById('container-grid');
+  const empty = document.getElementById('empty-state');
   const countEl = document.getElementById('container-count');
 
-  if (countEl) countEl.textContent = `${containers.length} container${containers.length !== 1 ? 's' : ''}`;
-
-  if (containers.length === 0) {
-    list.innerHTML = `
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="width:48px;height:48px;margin:0 auto 16px;opacity:.3;display:block">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
-        </svg>
-        <h3>No containers yet</h3>
-        <p>Add your first container above.</p>
-      </div>`;
-    return;
+  let filtered = containers;
+  if (q) {
+    filtered = containers.filter(c =>
+      (c.code || '').toLowerCase().includes(q) ||
+      (c.description || '').toLowerCase().includes(q) ||
+      (c.location || '').toLowerCase().includes(q) ||
+      (c.bin_type_key || '').toLowerCase().includes(q)
+    );
   }
 
-  list.innerHTML = containers.map(c => {
-    const photos   = c.photos || [];
-    const extPhoto = photos.find(p => p.label === 'exterior') || photos[0];
-    const typeName = c.storage_bin_types?.name || '';
+  if (countEl) countEl.textContent = filtered.length + ' container' + (filtered.length !== 1 ? 's' : '');
 
-    return `
-      <div class="container-card" onclick="openContainerDetail('${c.id}')">
-        <div class="container-photo-thumb">
-          ${extPhoto
-            ? `<img src="${extPhoto.url}" alt="">`
-            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="22" height="22"><path stroke-linecap="round" stroke-linejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`}
-          ${photos.length > 1 ? `<span class="photo-count">${photos.length}</span>` : ''}
-        </div>
-        <div class="container-body">
-          <div class="container-code">${escapeHtml(c.code || '')}</div>
-          ${c.description ? `<div class="container-desc">${escapeHtml(c.description)}</div>` : ''}
-          ${typeName ? `<div class="container-type-label">${escapeHtml(typeName)}</div>` : ''}
-          <div class="container-meta-row">
-            ${c.location ? `<span class="container-loc">📍 ${escapeHtml(c.location)}</span>` : ''}
-            ${c.product_link ? `<a href="${c.product_link}" target="_blank" onclick="event.stopPropagation()" class="container-link">Product ↗</a>` : ''}
-          </div>
-        </div>
-        <div class="container-right">
-          <div class="container-value">${formatCurrency(c.estimated_value)}</div>
-          <div class="container-actions">
-            <button class="btn btn-ghost" onclick="event.stopPropagation();editContainer('${c.id}')" title="Edit">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            </button>
-            <button class="btn btn-danger" onclick="event.stopPropagation();deleteContainer('${c.id}')" title="Delete">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>`;
+  if (!filtered.length) {
+    grid.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(c => cardHTML(c)).join('');
+
+  grid.querySelectorAll('.container-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.card-action-btn')) return;
+      openDetail(card.dataset.id);
+    });
+  });
+  grid.querySelectorAll('.card-edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openEdit(btn.dataset.id);
+    });
+  });
+}
+
+function cardHTML(c) {
+  const photos = (c.container_photos || []).sort((a, b) => a.sort_order - b.sort_order);
+  const primaryPhoto = photos[0];
+  const photoCount = photos.length;
+
+  const thumb = primaryPhoto
+    ? '<div class="card-thumb" style="background-image:url(\'' + primaryPhoto.url + '\')">' +
+      (photoCount > 1 ? '<span class="photo-badge">' + photoCount + '</span>' : '') +
+      '</div>'
+    : '<div class="card-thumb card-thumb-empty"><span class="thumb-icon">&#9633;</span></div>';
+
+  const value = c.estimated_value ? '$' + Number(c.estimated_value).toLocaleString() : '';
+
+  return '<div class="container-card" data-id="' + c.id + '">' +
+    thumb +
+    '<div class="card-body">' +
+      '<div class="card-top">' +
+        '<span class="container-code">' + (c.code || '&mdash;') + '</span>' +
+        '<button class="card-action-btn card-edit-btn" data-id="' + c.id + '" title="Edit">&#9998;</button>' +
+      '</div>' +
+      '<div class="container-type-label">' + (c.bin_type_key || '') + '</div>' +
+      (c.description ? '<div class="card-desc">' + c.description + '</div>' : '') +
+      '<div class="card-meta">' +
+        (c.location ? '<span class="card-location">' + c.location + '</span>' : '') +
+        (value ? '<span class="card-value">' + value + '</span>' : '') +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// Detail Modal
+function openDetail(id) {
+  const c = containers.find(x => x.id === id);
+  if (!c) return;
+  detailContainerId = id;
+
+  const photos = (c.container_photos || []).sort((a, b) => a.sort_order - b.sort_order);
+  const modal = document.getElementById('detail-modal');
+
+  document.getElementById('detail-code').textContent = c.code || '—';
+  document.getElementById('detail-type').textContent = c.bin_type_key || '';
+  document.getElementById('detail-desc').textContent = c.description || '';
+  document.getElementById('detail-location').textContent = c.location || '—';
+  document.getElementById('detail-value').textContent = c.estimated_value ? '$' + Number(c.estimated_value).toLocaleString() : '—';
+
+  const linkEl = document.getElementById('detail-link');
+  if (c.product_link) {
+    linkEl.href = c.product_link;
+    linkEl.textContent = 'View product \u2192';
+    linkEl.style.display = 'inline';
+  } else {
+    linkEl.style.display = 'none';
+  }
+
+  const gallery = document.getElementById('detail-gallery');
+  if (photos.length) {
+    gallery.innerHTML = photos.map(p =>
+      '<div class="gallery-item">' +
+      '<img src="' + p.url + '" alt="' + p.label + '" loading="lazy" />' +
+      '<span class="gallery-label">' + p.label + '</span>' +
+      '</div>'
+    ).join('');
+  } else {
+    gallery.innerHTML = '<p class="no-photos">No photos yet</p>';
+  }
+
+  modal.classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-modal').classList.remove('open');
+  detailContainerId = null;
+}
+
+// Add / Edit Modal
+function openAdd() {
+  editingId = null;
+  pendingPhotos = [];
+  resetForm();
+  document.getElementById('modal-title').textContent = 'Add Container';
+  document.getElementById('delete-btn').style.display = 'none';
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function openEdit(id) {
+  const c = containers.find(x => x.id === id);
+  if (!c) return;
+  editingId = id;
+  pendingPhotos = [];
+
+  document.getElementById('modal-title').textContent = 'Edit Container';
+  document.getElementById('delete-btn').style.display = 'inline-block';
+  document.getElementById('f-code').value = c.code || '';
+  document.getElementById('f-bin-type').value = c.bin_type_key || '';
+  document.getElementById('f-description').value = c.description || '';
+  document.getElementById('f-value').value = c.estimated_value || '';
+  document.getElementById('f-product-link').value = c.product_link || '';
+  document.getElementById('f-location').value = c.location || '';
+
+  renderExistingPhotos(c.container_photos || []);
+  renderPendingPhotos();
+
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('open');
+  editingId = null;
+  pendingPhotos = [];
+}
+
+function resetForm() {
+  ['f-code','f-bin-type','f-description','f-value','f-product-link','f-location'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('existing-photos-list').innerHTML = '';
+  renderPendingPhotos();
+}
+
+// Location hint buttons
+function setLocation(val) {
+  document.getElementById('f-location').value = val;
+}
+
+// Photo handling
+function handlePhotoInput(e) {
+  Array.from(e.target.files).forEach(function(file) {
+    pendingPhotos.push({ file: file, label: 'exterior', previewUrl: URL.createObjectURL(file) });
+  });
+  e.target.value = '';
+  renderPendingPhotos();
+}
+
+function renderPendingPhotos() {
+  const container = document.getElementById('pending-photos');
+  if (!pendingPhotos.length) { container.innerHTML = ''; return; }
+  container.innerHTML = pendingPhotos.map(function(p, i) {
+    return '<div class="pending-photo-row">' +
+      '<img src="' + p.previewUrl + '" class="pending-thumb" alt="preview" />' +
+      '<select class="pending-label-select" data-index="' + i + '" onchange="updatePendingLabel(' + i + ', this.value)">' +
+        '<option value="exterior"' + (p.label==='exterior'?' selected':'') + '>exterior</option>' +
+        '<option value="interior"' + (p.label==='interior'?' selected':'') + '>interior</option>' +
+        '<option value="detail"'   + (p.label==='detail'?' selected':'')   + '>detail</option>' +
+      '</select>' +
+      '<button class="remove-pending-btn" onclick="removePending(' + i + ')" title="Remove">\u00d7</button>' +
+    '</div>';
   }).join('');
 }
 
-// ── Container Detail Modal ────────────────────────────────────────────
-function openContainerDetail(id) {
-  const c = allContainers.find(x => x.id === id);
-  if (!c) return;
-  const photos = c.photos || [];
-
-  document.getElementById('detail-code').textContent     = c.code || '';
-  document.getElementById('detail-type').textContent     = c.storage_bin_types?.name || '—';
-  document.getElementById('detail-desc').textContent     = c.description || '—';
-  document.getElementById('detail-location').textContent = c.location || '—';
-  document.getElementById('detail-value').textContent    = formatCurrency(c.estimated_value);
-  document.getElementById('detail-link').innerHTML = c.product_link
-    ? `<a href="${c.product_link}" target="_blank">${escapeHtml(c.product_link)}</a>` : '—';
-
-  const gallery = document.getElementById('detail-photos');
-  gallery.innerHTML = photos.length === 0
-    ? `<p style="color:var(--text-muted);font-size:0.85rem;">No photos yet</p>`
-    : photos.map(p => `
-        <div class="detail-photo-item">
-          <img src="${p.url}" alt="${p.label}" onclick="window.open('${p.url}','_blank')">
-          <span class="photo-label-badge">${p.label}</span>
-        </div>`).join('');
-
-  document.getElementById('detail-edit-btn').onclick = () => {
-    closeModal('container-detail-modal');
-    editContainer(id);
-  };
-  openModal('container-detail-modal');
+function updatePendingLabel(index, val) {
+  if (pendingPhotos[index]) pendingPhotos[index].label = val;
 }
 
-// ── Add / Edit Container ──────────────────────────────────────────────
-function openAddContainer() {
-  document.getElementById('container-modal-title').textContent  = 'Add New Container';
-  document.getElementById('save-container-btn').textContent     = 'Add Container';
-  document.getElementById('edit-container-id').value           = '';
-  document.getElementById('container-code').value              = '';
-  document.getElementById('container-description').value       = '';
-  document.getElementById('container-type').value              = '';
-  document.getElementById('container-location').value          = '';
-  document.getElementById('container-value').value             = '';
-  document.getElementById('container-product-link').value      = '';
-  document.getElementById('photo-upload-list').innerHTML       = '';
-  window._pendingPhotos = [];
-  openModal('container-modal');
+function removePending(index) {
+  pendingPhotos.splice(index, 1);
+  renderPendingPhotos();
 }
 
-function editContainer(id) {
-  const c = allContainers.find(x => x.id === id);
-  if (!c) return;
-
-  document.getElementById('container-modal-title').textContent  = 'Edit Container';
-  document.getElementById('save-container-btn').textContent     = 'Save Changes';
-  document.getElementById('edit-container-id').value           = c.id;
-  document.getElementById('container-code').value              = c.code || '';
-  document.getElementById('container-description').value       = c.description || '';
-  document.getElementById('container-type').value              = c.type_id || '';
-  document.getElementById('container-location').value          = c.location || '';
-  document.getElementById('container-value').value             = c.estimated_value || '';
-  document.getElementById('container-product-link').value      = c.product_link || '';
-
-  window._pendingPhotos = [];
-  const photos     = c.photos || [];
-  const uploadList = document.getElementById('photo-upload-list');
-  uploadList.innerHTML = photos.map(p => `
-    <div class="existing-photo-item" id="epho-${p.id}">
-      <img src="${p.url}" alt="${p.label}">
-      <select class="photo-label-select" onchange="updatePhotoLabel('${p.id}',this.value)">
-        <option value="exterior" ${p.label === 'exterior' ? 'selected' : ''}>Exterior</option>
-        <option value="interior" ${p.label === 'interior' ? 'selected' : ''}>Interior</option>
-        <option value="detail"   ${p.label === 'detail'   ? 'selected' : ''}>Detail</option>
-      </select>
-      <button class="photo-delete-btn" onclick="removeExistingPhoto('${p.id}')">✕</button>
-    </div>`).join('');
-
-  openModal('container-modal');
+function renderExistingPhotos(photos) {
+  const list = document.getElementById('existing-photos-list');
+  if (!photos.length) { list.innerHTML = ''; return; }
+  list.innerHTML = photos
+    .sort(function(a,b){ return a.sort_order - b.sort_order; })
+    .map(function(p) {
+      return '<div class="existing-photo-row" data-photo-id="' + p.id + '">' +
+        '<img src="' + p.url + '" class="pending-thumb" alt="' + p.label + '" />' +
+        '<select class="pending-label-select" onchange="updateExistingLabel(\'' + p.id + '\', this.value)">' +
+          '<option value="exterior"' + (p.label==='exterior'?' selected':'') + '>exterior</option>' +
+          '<option value="interior"' + (p.label==='interior'?' selected':'') + '>interior</option>' +
+          '<option value="detail"'   + (p.label==='detail'?' selected':'')   + '>detail</option>' +
+        '</select>' +
+        '<button class="remove-pending-btn" onclick="deleteExistingPhoto(\'' + p.id + '\')" title="Delete">\u00d7</button>' +
+      '</div>';
+    }).join('');
 }
 
-// ── Photo Management ──────────────────────────────────────────────────
-async function updatePhotoLabel(photoId, label) {
-  await db.from('container_photos').update({ label }).eq('id', photoId);
-}
-
-async function removeExistingPhoto(photoId) {
-  await db.from('container_photos').delete().eq('id', photoId);
-  document.getElementById(`epho-${photoId}`)?.remove();
-  await loadContainers();
-}
-
-window._pendingPhotos = [];
-
-function handlePhotoSelect(input) {
-  Array.from(input.files).forEach(file => {
-    const id     = Math.random().toString(36).slice(2);
-    const reader = new FileReader();
-    reader.onload = e => {
-      window._pendingPhotos.push({ id, file, label: 'exterior', dataUrl: e.target.result });
-      const item = document.createElement('div');
-      item.className = 'pending-photo-item';
-      item.id = `ppho-${id}`;
-      item.innerHTML = `
-        <img src="${e.target.result}" alt="preview">
-        <select class="photo-label-select" onchange="updatePendingLabel('${id}',this.value)">
-          <option value="exterior">Exterior</option>
-          <option value="interior">Interior</option>
-          <option value="detail">Detail</option>
-        </select>
-        <button class="photo-delete-btn" onclick="removePendingPhoto('${id}')">✕</button>`;
-      document.getElementById('photo-upload-list').appendChild(item);
-    };
-    reader.readAsDataURL(file);
+async function updateExistingLabel(photoId, label) {
+  await api('container_photos?id=eq.' + photoId, {
+    method: 'PATCH',
+    body: JSON.stringify({ label: label }),
   });
-  input.value = '';
 }
 
-function updatePendingLabel(id, label) {
-  const p = window._pendingPhotos.find(x => x.id === id);
-  if (p) p.label = label;
+async function deleteExistingPhoto(photoId) {
+  await api('container_photos?id=eq.' + photoId, { method: 'DELETE' });
+  var row = document.querySelector('[data-photo-id="' + photoId + '"]');
+  if (row) row.remove();
+  if (editingId) {
+    var c = containers.find(function(x){ return x.id === editingId; });
+    if (c) c.container_photos = (c.container_photos || []).filter(function(p){ return p.id !== photoId; });
+  }
 }
 
-function removePendingPhoto(id) {
-  window._pendingPhotos = window._pendingPhotos.filter(x => x.id !== id);
-  document.getElementById(`ppho-${id}`)?.remove();
-}
+async function uploadPhotos(containerId) {
+  for (var i = 0; i < pendingPhotos.length; i++) {
+    var p = pendingPhotos[i];
+    var ext = p.file.name.split('.').pop();
+    var path = containerId + '/' + Date.now() + '-' + i + '.' + ext;
 
-async function uploadPendingPhotos(containerId) {
-  for (let i = 0; i < window._pendingPhotos.length; i++) {
-    const pending = window._pendingPhotos[i];
-    const ext  = pending.file.name.split('.').pop() || 'jpg';
-    const path = `${containerId}/${Date.now()}-${i}-${pending.label}.${ext}`;
-    const { error } = await db.storage.from(PHOTO_BUCKET).upload(path, pending.file, { upsert: true });
-    if (error) { console.error('Photo upload error:', error); continue; }
-    const { data: urlData } = db.storage.from(PHOTO_BUCKET).getPublicUrl(path);
-    await db.from('container_photos').insert({
-      container_id: containerId,
-      url: urlData.publicUrl,
-      label: pending.label,
-      sort_order: i
+    var uploadRes = await storageApi('object/' + STORAGE_BUCKET + '/' + path, {
+      method: 'POST',
+      headers: { 'Content-Type': p.file.type },
+      body: p.file,
+    });
+
+    if (!uploadRes.ok) { console.error('Photo upload failed', await uploadRes.text()); continue; }
+
+    var url = SUPABASE_URL + '/storage/v1/object/public/' + STORAGE_BUCKET + '/' + path;
+    await api('container_photos', {
+      method: 'POST',
+      body: JSON.stringify({ container_id: containerId, url: url, label: p.label, sort_order: i }),
     });
   }
 }
 
-// ── Save Container ────────────────────────────────────────────────────
+// Save
 async function saveContainer() {
-  const id           = document.getElementById('edit-container-id').value;
-  const code         = document.getElementById('container-code').value.trim();
-  const description  = document.getElementById('container-description').value.trim();
-  const type_id      = document.getElementById('container-type').value || null;
-  const location     = document.getElementById('container-location').value.trim() || null;
-  const value        = parseFloat(document.getElementById('container-value').value) || 0;
-  const product_link = document.getElementById('container-product-link').value.trim() || null;
+  var saveBtn = document.getElementById('save-btn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving\u2026';
 
-  if (!code) { showToast('Code / ID is required'); return; }
+  var data = {
+    code: document.getElementById('f-code').value.trim().toUpperCase(),
+    bin_type_key: document.getElementById('f-bin-type').value.trim(),
+    description: document.getElementById('f-description').value.trim(),
+    estimated_value: document.getElementById('f-value').value || null,
+    product_link: document.getElementById('f-product-link').value.trim() || null,
+    location: document.getElementById('f-location').value.trim(),
+  };
 
-  const btn = document.getElementById('save-container-btn');
-  btn.disabled    = true;
-  btn.textContent = 'Saving…';
-
-  const payload = { code, description: description || null, type_id, location, estimated_value: value, product_link };
-
-  let error, savedId;
-  if (id) {
-    ({ error } = await db.from('storage_containers').update(payload).eq('id', id));
-    savedId = id;
-  } else {
-    const { data, error: e } = await db.from('storage_containers').insert(payload).select().single();
-    error   = e;
-    savedId = data?.id;
+  if (!data.code) {
+    alert('Container code is required.');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+    return;
   }
 
-  btn.disabled    = false;
-  btn.textContent = id ? 'Save Changes' : 'Add Container';
+  var containerId = editingId;
 
-  if (error) { showToast('Error saving container'); console.error(error); return; }
-  if (savedId && window._pendingPhotos.length > 0) await uploadPendingPhotos(savedId);
+  if (editingId) {
+    var res = await api('storage_containers?id=eq.' + editingId, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) { alert('Save failed.'); saveBtn.disabled = false; saveBtn.textContent = 'Save'; return; }
+  } else {
+    var res = await api('storage_containers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) { alert('Save failed.'); saveBtn.disabled = false; saveBtn.textContent = 'Save'; return; }
+    var created = await res.json();
+    containerId = created[0].id;
+  }
 
-  closeModal('container-modal');
-  showToast(id ? 'Container updated ✓' : 'Container added ✓');
-  window._pendingPhotos = [];
+  if (pendingPhotos.length) {
+    await uploadPhotos(containerId);
+  }
+
+  closeAddModal();
+  await loadContainers();
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Save';
+}
+
+// Delete
+async function deleteContainer() {
+  if (!editingId) return;
+  var c = containers.find(function(x){ return x.id === editingId; });
+  if (!confirm('Delete container "' + (c ? c.code : '') + '"? This cannot be undone.')) return;
+  await api('storage_containers?id=eq.' + editingId, { method: 'DELETE' });
+  closeAddModal();
   await loadContainers();
 }
 
-// ── Delete Container ──────────────────────────────────────────────────
-async function deleteContainer(id) {
-  if (!confirm('Delete this container? This cannot be undone.')) return;
-  const { error } = await db.from('storage_containers').delete().eq('id', id);
-  if (error) { showToast('Error deleting container'); return; }
-  showToast('Container deleted');
-  await loadContainers();
+// Bin Types Manager
+function openBinTypes() {
+  renderBinTypesList();
+  document.getElementById('bin-types-modal').classList.add('open');
 }
 
-// ── Bin Type CRUD ─────────────────────────────────────────────────────
+function closeBinTypes() {
+  document.getElementById('bin-types-modal').classList.remove('open');
+}
+
+function renderBinTypesList() {
+  var list = document.getElementById('bin-types-list');
+  list.innerHTML = binTypes.map(function(bt) {
+    return '<div class="bin-type-row">' +
+      '<span>' + bt.name + '</span>' +
+      '<button class="remove-pending-btn" onclick="deleteBinType(\'' + bt.id + '\')" title="Delete">\u00d7</button>' +
+    '</div>';
+  }).join('');
+}
+
 async function addBinType() {
-  const name = document.getElementById('new-bin-type-name').value.trim();
-  if (!name) { showToast('Name is required'); return; }
-  const { error } = await db.from('storage_bin_types').insert({ name });
-  if (error) { showToast('Error adding bin type'); return; }
-  document.getElementById('new-bin-type-name').value = '';
-  showToast('Bin type added ✓');
-  await loadBinTypes();
+  var input = document.getElementById('new-bin-type-input');
+  var name = input.value.trim();
+  if (!name) return;
+  var res = await api('storage_bin_types', {
+    method: 'POST',
+    body: JSON.stringify({ name: name }),
+  });
+  if (res.ok) {
+    input.value = '';
+    await loadBinTypes();
+    renderBinTypesList();
+  }
 }
 
 async function deleteBinType(id) {
-  if (!confirm('Delete this bin type?')) return;
-  const { error } = await db.from('storage_bin_types').delete().eq('id', id);
-  if (error) { showToast('Error deleting bin type'); return; }
-  showToast('Bin type deleted');
-  await loadBinTypes();
+  await api('storage_bin_types?id=eq.' + id, { method: 'DELETE' });
+  binTypes = binTypes.filter(function(bt){ return bt.id !== id; });
+  renderBinTypesList();
+  populateBinTypeSelect();
 }
 
-// ── Insurance Report ──────────────────────────────────────────────────
-function openInsuranceReport() {
-  const total = allContainers.reduce((s, c) => s + (parseFloat(c.estimated_value) || 0), 0);
-  document.getElementById('report-total').textContent = formatCurrency(total);
-  document.getElementById('report-date').textContent  =
-    'As of ' + new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-
-  const valued = allContainers
-    .filter(c => c.estimated_value > 0)
-    .sort((a, b) => b.estimated_value - a.estimated_value);
-
-  document.getElementById('insurance-list').innerHTML = valued.length === 0
-    ? `<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:16px;">No containers with values yet.</p>`
-    : valued.map(c => `
-        <div class="insurance-row">
-          <div>
-            <div class="insurance-code">${escapeHtml(c.code || '')}</div>
-            <div class="insurance-detail">${escapeHtml(c.storage_bin_types?.name || '')}${c.location ? ' · ' + escapeHtml(c.location) : ''}</div>
-            ${c.description ? `<div class="insurance-desc">${escapeHtml(c.description.substring(0, 60))}${c.description.length > 60 ? '…' : ''}</div>` : ''}
-          </div>
-          <div class="insurance-value">${formatCurrency(c.estimated_value)}</div>
-        </div>`).join('');
-
-  openModal('insurance-modal');
+function populateBinTypeSelect() {
+  var sel = document.getElementById('f-bin-type');
+  if (!sel) return;
+  var current = sel.value;
+  sel.innerHTML = '<option value="">\u2014 select type \u2014</option>' +
+    binTypes.map(function(bt){ return '<option value="' + bt.name + '">' + bt.name + '</option>'; }).join('');
+  if (current) sel.value = current;
 }
 
-// ── Location Hint Helper ──────────────────────────────────────────────
-function insertLocationHint(hint) {
-  const f = document.getElementById('container-location');
-  f.value = hint;
-  f.focus();
+// Insurance Report
+function openInsurance() {
+  var tbody = document.getElementById('insurance-table-body');
+  var total = 0;
+  tbody.innerHTML = containers.map(function(c) {
+    var val = Number(c.estimated_value) || 0;
+    total += val;
+    return '<tr>' +
+      '<td><strong>' + (c.code || '&mdash;') + '</strong></td>' +
+      '<td>' + (c.bin_type_key || '') + '</td>' +
+      '<td>' + (c.description || '') + '</td>' +
+      '<td>' + (c.location || '') + '</td>' +
+      '<td style="text-align:right">' + (val ? '$' + val.toLocaleString() : '') + '</td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('insurance-total').textContent = '$' + total.toLocaleString();
+  document.getElementById('insurance-modal').classList.add('open');
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+function closeInsurance() {
+  document.getElementById('insurance-modal').classList.remove('open');
 }
 
-document.addEventListener('DOMContentLoaded', loadAll);
+function printInsurance() {
+  window.print();
+}
+
+// UI Bindings
+function bindUI() {
+  document.getElementById('search-input')?.addEventListener('input', renderGrid);
+  document.getElementById('add-btn')?.addEventListener('click', openAdd);
+  document.getElementById('photo-input')?.addEventListener('change', handlePhotoInput);
+  document.getElementById('save-btn')?.addEventListener('click', saveContainer);
+  document.getElementById('delete-btn')?.addEventListener('click', deleteContainer);
+  document.getElementById('close-add-modal')?.addEventListener('click', closeAddModal);
+  document.getElementById('close-detail-modal')?.addEventListener('click', closeDetail);
+  document.getElementById('detail-edit-btn')?.addEventListener('click', function() {
+    closeDetail();
+    if (detailContainerId) openEdit(detailContainerId);
+  });
+  document.getElementById('insurance-btn')?.addEventListener('click', openInsurance);
+  document.getElementById('close-insurance-modal')?.addEventListener('click', closeInsurance);
+  document.getElementById('print-insurance-btn')?.addEventListener('click', printInsurance);
+  document.getElementById('bin-types-btn')?.addEventListener('click', openBinTypes);
+  document.getElementById('close-bin-types-modal')?.addEventListener('click', closeBinTypes);
+  document.getElementById('add-bin-type-btn')?.addEventListener('click', addBinType);
+  document.getElementById('new-bin-type-input')?.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') addBinType();
+  });
+  document.getElementById('add-modal')?.addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) closeAddModal();
+  });
+  document.getElementById('detail-modal')?.addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) closeDetail();
+  });
+  document.getElementById('insurance-modal')?.addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) closeInsurance();
+  });
+  document.getElementById('bin-types-modal')?.addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) closeBinTypes();
+  });
+}
