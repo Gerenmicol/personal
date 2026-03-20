@@ -76,7 +76,7 @@ function renderGrid() {
     );
   }
 
-  if (countEl) countEl.textContent = filtered.length + ' container' + (filtered.length !== 1 ? 's' : '');
+  if (countEl) countEl.textContent = filtered.length + ' item' + (filtered.length !== 1 ? 's' : '');
 
   if (!filtered.length) {
     grid.innerHTML = '';
@@ -180,7 +180,7 @@ function openAdd() {
   editingId = null;
   pendingPhotos = [];
   resetForm();
-  document.getElementById('modal-title').textContent = 'Add Container';
+  document.getElementById('modal-title').textContent = 'Add Item';
   document.getElementById('delete-btn').style.display = 'none';
   document.getElementById('add-modal').classList.add('open');
 }
@@ -191,7 +191,7 @@ function openEdit(id) {
   editingId = id;
   pendingPhotos = [];
 
-  document.getElementById('modal-title').textContent = 'Edit Container';
+  document.getElementById('modal-title').textContent = 'Edit Item';
   document.getElementById('delete-btn').style.display = 'inline-block';
   document.getElementById('f-code').value = c.code || '';
   document.getElementById('f-bin-type').value = c.bin_type_key || '';
@@ -366,7 +366,7 @@ async function saveContainer() {
 async function deleteContainer() {
   if (!editingId) return;
   var c = containers.find(function(x){ return x.id === editingId; });
-  if (!confirm('Delete container "' + (c ? c.code : '') + '"? This cannot be undone.')) return;
+  if (!confirm('Delete item "' + (c ? c.code : '') + '"? This cannot be undone.')) return;
   await api('storage_containers?id=eq.' + editingId, { method: 'DELETE' });
   closeAddModal();
   await loadContainers();
