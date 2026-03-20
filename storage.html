@@ -9,6 +9,7 @@
   <title>Storage Log — Geren Lockhart</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
+    /* ── Total bar ── */
     .total-bar {
       background: var(--steel-light);
       border-radius: var(--radius-md);
@@ -26,6 +27,106 @@
       color: var(--steel-dark);
     }
 
+    /* ── Container card ── */
+    .container-card {
+      background: var(--white);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+    }
+    .container-card:hover { box-shadow: var(--shadow-md); }
+
+    /* Photo thumbnail */
+    .container-photo-thumb {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-sm);
+      background: var(--linen-dark);
+      flex-shrink: 0;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      position: relative;
+    }
+    .container-photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-count {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 0.6rem;
+      font-weight: 600;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    /* Card body — CODE is hero */
+    .container-body { flex: 1; min-width: 0; }
+    .container-code {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: var(--navy);
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+    .container-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .container-type-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .container-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .container-loc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .container-link {
+      font-size: 0.75rem;
+      color: var(--steel);
+      text-decoration: none;
+    }
+    .container-link:hover { text-decoration: underline; }
+
+    /* Card right side */
+    .container-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .container-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      color: var(--navy);
+    }
+    .container-actions { display: flex; gap: 2px; }
+
+    /* ── Bin type manager ── */
     .bin-type-item {
       display: flex;
       align-items: center;
@@ -48,25 +149,169 @@
       color: var(--text-muted);
       overflow: hidden;
     }
-    .bin-type-photo img { width:100%; height:100%; object-fit:cover; }
-    .bin-type-name { flex: 1; font-weight: 500; font-size: 0.95rem; }
+    .bin-type-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .bin-type-name { flex: 1; font-weight: 500; font-size: 0.88rem; }
     .bin-type-delete {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-muted);
-      padding: 6px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); padding: 6px;
       border-radius: var(--radius-sm);
       transition: color 0.2s, background 0.2s;
     }
     .bin-type-delete:hover { color: var(--critical); background: var(--critical-bg); }
 
-    .header-buttons {
+    /* ── Photo upload UI ── */
+    .photo-upload-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      margin-bottom: 10px;
+    }
+    .photo-upload-zone:hover { border-color: var(--steel); color: var(--steel); }
+    .photo-upload-zone input[type="file"] { display: none; }
+
+    #photo-upload-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+
+    .existing-photo-item,
+    .pending-photo-item {
+      position: relative;
+      width: 90px;
+    }
+    .existing-photo-item img,
+    .pending-photo-item img {
+      width: 90px;
+      height: 70px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      display: block;
+      border: 1px solid var(--border);
+    }
+    .photo-label-select {
+      width: 100%;
+      font-size: 0.72rem;
+      margin-top: 4px;
+      padding: 3px 4px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--white);
+      color: var(--text-primary);
+    }
+    .photo-delete-btn {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 0.7rem;
+      cursor: pointer;
       display: flex;
-      gap: 8px;
       align-items: center;
+      justify-content: center;
     }
 
+    /* ── Location hint buttons ── */
+    .location-hints {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .hint-btn {
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .hint-btn:hover { border-color: var(--steel); color: var(--steel); }
+
+    /* ── Container detail modal ── */
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .detail-field label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: block;
+      margin-bottom: 3px;
+    }
+    .detail-field .detail-val {
+      font-size: 0.92rem;
+      color: var(--text-primary);
+    }
+    .detail-field.full { grid-column: 1 / -1; }
+    #detail-code-display {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.8rem;
+      font-weight: 500;
+      color: var(--navy);
+      margin-bottom: 16px;
+    }
+    .detail-photos-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .detail-photo-item {
+      position: relative;
+      width: 100px;
+    }
+    .detail-photo-item img {
+      width: 100px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+    .photo-label-badge {
+      display: block;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 3px;
+      text-transform: capitalize;
+    }
+
+    /* ── Insurance report ── */
+    .insurance-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .insurance-code  { font-weight: 500; font-size: 0.9rem; }
+    .insurance-detail { font-size: 0.78rem; color: var(--text-secondary); }
+    .insurance-desc  { font-size: 0.75rem; color: var(--text-muted); }
+    .insurance-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem;
+      color: var(--navy);
+      flex-shrink: 0;
+      margin-left: 16px;
+    }
+
+    /* ── Header buttons ── */
+    .header-buttons { display: flex; gap: 8px; align-items: center; }
     @media (max-width: 480px) {
       .header-buttons .btn span:not(.icon-only) { display: none; }
     }
@@ -131,8 +376,8 @@
           <option value="">All Locations</option>
         </select>
         <select class="filter-select" id="sort-select" onchange="renderContainers()">
-          <option value="created">Sort: Date Added</option>
           <option value="code">Sort: Code</option>
+          <option value="created">Sort: Date Added</option>
           <option value="value_desc">Sort: Value ↓</option>
           <option value="value_asc">Sort: Value ↑</option>
         </select>
@@ -143,7 +388,6 @@
         <h2>Current Inventory</h2>
         <span class="section-count" id="container-count"></span>
       </div>
-
       <div id="container-list">
         <div class="loading"><div class="spinner"></div> Loading inventory…</div>
       </div>
@@ -176,7 +420,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>Code / ID *</label>
-          <input type="text" id="container-code" placeholder="e.g., BOX-001, BIN-A">
+          <input type="text" id="container-code" placeholder="e.g., LINENS-A, BIN-01">
         </div>
         <div class="form-group">
           <label>Type</label>
@@ -186,35 +430,39 @@
 
       <div class="form-group">
         <label>Description</label>
-        <textarea id="container-description" placeholder="e.g., Kitchen utensils and dishes"></textarea>
+        <textarea id="container-description" placeholder="What's inside this container…"></textarea>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Size</label>
-          <select id="container-size">
-            <option value="">Select size</option>
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-            <option value="xl">XL</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Location in Storage</label>
-          <input type="text" id="container-location" placeholder="e.g., Unit A, Row 2">
+      <div class="form-group">
+        <label>Estimated Value ($)</label>
+        <input type="number" id="container-value" placeholder="0.00" min="0" step="0.01">
+      </div>
+
+      <div class="form-group">
+        <label>Product Link (optional)</label>
+        <input type="url" id="container-product-link" placeholder="https://…">
+      </div>
+
+      <div class="form-group">
+        <label>Location in Storage</label>
+        <input type="text" id="container-location" placeholder="e.g., BW · Col 3 · Slot 2">
+        <div class="location-hints">
+          <button type="button" class="hint-btn" onclick="insertLocationHint('BW · Col ')">BW · Col</button>
+          <button type="button" class="hint-btn" onclick="insertLocationHint('HDX · Shelf ')">HDX · Shelf</button>
+          <button type="button" class="hint-btn" onclick="insertLocationHint('Floor · Front')">Floor · Front</button>
+          <button type="button" class="hint-btn" onclick="insertLocationHint('Floor · Back')">Floor · Back</button>
+          <button type="button" class="hint-btn" onclick="insertLocationHint('Floor · Mid')">Floor · Mid</button>
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Estimated Value ($)</label>
-          <input type="number" id="container-value" placeholder="0.00" min="0" step="0.01">
-        </div>
-        <div class="form-group">
-          <label>Website Link (optional)</label>
-          <input type="url" id="container-link" placeholder="https://…">
-        </div>
+      <div class="form-group">
+        <label>Photos</label>
+        <label class="photo-upload-zone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="24" height="24" style="margin:0 auto 6px;display:block"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          Tap to add photos
+          <input type="file" accept="image/*" multiple onchange="handlePhotoSelect(this)">
+        </label>
+        <div id="photo-upload-list"></div>
       </div>
 
       <div class="modal-footer">
@@ -224,30 +472,65 @@
     </div>
   </div>
 
+  <!-- ── Container Detail Modal ── -->
+  <div class="modal-overlay" id="container-detail-modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div id="detail-code-display" id="detail-code"></div>
+      <div class="detail-grid">
+        <div class="detail-field">
+          <label>Type</label>
+          <div class="detail-val" id="detail-type">—</div>
+        </div>
+        <div class="detail-field">
+          <label>Value</label>
+          <div class="detail-val" id="detail-value">—</div>
+        </div>
+        <div class="detail-field">
+          <label>Location</label>
+          <div class="detail-val" id="detail-location">—</div>
+        </div>
+        <div class="detail-field">
+          <label>Product Link</label>
+          <div class="detail-val" id="detail-link">—</div>
+        </div>
+        <div class="detail-field full">
+          <label>Description</label>
+          <div class="detail-val" id="detail-desc">—</div>
+        </div>
+        <div class="detail-field full">
+          <label>Photos</label>
+          <div class="detail-photos-strip" id="detail-photos"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('container-detail-modal')">Close</button>
+        <button class="btn btn-primary" id="detail-edit-btn">Edit</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Manage Bin Types Modal ── -->
   <div class="modal-overlay" id="bin-types-modal">
     <div class="modal">
       <div class="modal-handle"></div>
       <h2 class="modal-title">Manage Bin Types</h2>
-      <p class="modal-subtitle">Add, edit, or delete bin types for container classification.</p>
-
+      <p class="modal-subtitle">Add or remove bin types for container classification.</p>
       <div class="card" style="margin-bottom:16px;">
         <h3 style="margin-bottom:14px;">Add New Bin Type</h3>
         <div class="form-group">
-          <label>Bin Type Name</label>
-          <input type="text" id="new-bin-type-name" placeholder="e.g., Box, Thing, Dk. Grey Bin">
+          <label>Name</label>
+          <input type="text" id="new-bin-type-name" placeholder="e.g., HAY Crate LG  13.6×21×7.4">
         </div>
         <button class="btn btn-primary" onclick="addBinType()" style="width:100%;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
           Add Bin Type
         </button>
       </div>
-
       <h3 style="margin-bottom:12px;">Available Bin Types <span id="bin-type-count" style="color:var(--text-muted);font-size:0.85rem;font-weight:400;"></span></h3>
       <div id="bin-type-list">
         <div class="loading"><div class="spinner"></div></div>
       </div>
-
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('bin-types-modal')">Done</button>
       </div>
@@ -260,7 +543,6 @@
       <div class="modal-handle"></div>
       <h2 class="modal-title">Insurance Inventory Report</h2>
       <p class="modal-subtitle">Complete inventory report with values for insurance purposes.</p>
-
       <div class="total-bar" style="margin-bottom:20px;">
         <div>
           <div class="total-label">Total Inventory Value</div>
@@ -268,9 +550,7 @@
         </div>
         <div class="total-value" id="report-total">$0.00</div>
       </div>
-
       <div id="insurance-list"></div>
-
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('insurance-modal')">Close</button>
         <button class="btn btn-primary" onclick="window.print()">
