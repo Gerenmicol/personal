@@ -8,18 +8,19 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --plum: #4a2040;
-      --plum-light: #6b3560;
-      --linen: #f8f4ef;
-      --linen-dark: #ede7df;
-      --steel: #4a7c9e;
-      --steel-dark: #3a6580;
-      --muted: #9c8a85;
-      --text: #2d1f28;
+      --plum: #363675;
+      --plum-light: #4a4a8a;
+      --linen: #f4f1ec;
+      --linen-dark: #e8e3db;
+      --steel: #2a6b9c;
+      --steel-dark: #1f5280;
+      --accent: #c94f2a;
+      --muted: rgba(54,54,117,0.50);
+      --text: #1e1e3a;
       --card-bg: #ffffff;
-      --border: #e0d5cc;
+      --border: rgba(54,54,117,0.18);
       --radius: 10px;
-      --shadow: 0 2px 12px rgba(74,32,64,0.08);
+      --shadow: 0 2px 12px rgba(54,54,117,0.09);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -108,7 +109,7 @@
     .btn-steel   { background: var(--steel); color: white; }
     .btn-ghost   { background: transparent; color: var(--plum); border: 1px solid var(--border); }
     .btn-sm      { padding: 6px 12px; font-size: 0.8rem; }
-    .btn-danger  { background: #8b2020; color: white; }
+    .btn-danger  { background: #c94f2a; color: white; }
 
     .meta-bar {
       padding: 0 16px 10px;
@@ -311,25 +312,6 @@
     }
     .form-group textarea { resize: vertical; min-height: 70px; }
 
-    .location-hints {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-top: 6px;
-    }
-    .hint-btn {
-      padding: 4px 10px;
-      background: var(--linen-dark);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      font-size: 0.75rem;
-      cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-      color: var(--text);
-      transition: background 0.15s;
-    }
-    .hint-btn:hover { background: var(--border); }
-
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
     /* ── Photo upload zone ── */
@@ -380,7 +362,7 @@
       padding: 4px 6px;
       border-radius: 4px;
     }
-    .remove-pending-btn:hover { color: #8b2020; background: #fdf0f0; }
+    .remove-pending-btn:hover { color: #c94f2a; background: #fdf0ec; }
 
     /* ── Modal actions ── */
     .modal-actions {
@@ -619,15 +601,7 @@
 
       <div class="form-group">
         <label>Location</label>
-        <input id="f-location" type="text" placeholder="e.g. BW · Col 3 · Shelf 2" autocomplete="off" />
-        <div class="location-hints">
-          <button type="button" class="hint-btn" onclick="setLocation('BW · Col 1')">BW · Col 1</button>
-          <button type="button" class="hint-btn" onclick="setLocation('BW · Col 2')">BW · Col 2</button>
-          <button type="button" class="hint-btn" onclick="setLocation('BW · Col 3')">BW · Col 3</button>
-          <button type="button" class="hint-btn" onclick="setLocation('HDX · Shelf 1')">HDX · Shelf 1</button>
-          <button type="button" class="hint-btn" onclick="setLocation('HDX · Shelf 2')">HDX · Shelf 2</button>
-          <button type="button" class="hint-btn" onclick="setLocation('Floor')">Floor</button>
-        </div>
+        <input id="f-location" type="text" placeholder="e.g. storage unit, bedroom closet…" autocomplete="off" />
       </div>
 
       <div class="form-group">
