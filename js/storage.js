@@ -221,11 +221,6 @@ function resetForm() {
   renderPendingPhotos();
 }
 
-// Location hint buttons
-function setLocation(val) {
-  document.getElementById('f-location').value = val;
-}
-
 // Photo handling
 function handlePhotoInput(e) {
   Array.from(e.target.files).forEach(function(file) {
